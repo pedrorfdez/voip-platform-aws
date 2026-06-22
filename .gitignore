@@ -1,0 +1,29 @@
+# --- Terraform state (NUNCA en Git: contiene datos sensibles en claro) ---
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Directorio de trabajo de Terraform (providers, módulos descargados)
+.terraform/
+.terraform.lock.hcl
+
+# Ficheros de plan (pueden contener secretos resueltos)
+*.tfplan
+crash.log
+crash.*.log
+
+# --- Variables con valores sensibles ---
+# Los *.tfvars de ejemplo SÍ se versionan; los reales con secretos, no.
+*.auto.tfvars
+secrets.tfvars
+*.secret.tfvars
+
+# Credenciales AWS y entornos locales
+.env
+*.pem
+.aws/
+
+# Editor / SO
+.DS_Store
+.idea/
+.vscode/
