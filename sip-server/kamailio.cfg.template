@@ -1,0 +1,152 @@
+#!KAMAILIO
+
+####### Global Parameters #########
+
+# Level 1: only errors and warnings from the core. Structured SIP events
+# are logged explicitly via xlog below, so core debug noise is not needed.
+debug=1
+log_stderror=yes
+log_facility=LOG_LOCAL0
+
+fork=yes
+children=4
+
+# Bind on all interfaces so Kamailio accepts traffic on the Fargate task ENI.
+listen=udp:0.0.0.0:5060
+listen=tcp:0.0.0.0:5060
+listen=tcp:0.0.0.0:5061
+
+tcp_connection_lifetime=3605
+tcp_accept_no_cl=yes
+
+####### Modules Section ########
+
+loadmodule "sl.so"
+loadmodule "tm.so"
+loadmodule "rr.so"
+loadmodule "pv.so"
+loadmodule "maxfwd.so"
+loadmodule "usrloc.so"
+loadmodule "registrar.so"
+loadmodule "db_postgres.so"
+loadmodule "auth.so"
+loadmodule "auth_db.so"
+loadmodule "siputils.so"
+loadmodule "xlog.so"
+loadmodule "nathelper.so"
+
+####### Module Parameters #########
+
+modparam("usrloc", "db_url", "postgres://sipadmin:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}")
+modparam("usrloc", "db_mode", 2)
+
+modparam("auth_db", "db_url", "postgres://sipadmin:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}")
+modparam("auth_db", "calculate_ha1", 1)
+modparam("auth_db", "password_column", "password")
+modparam("auth_db", "use_domain", 0)
+
+modparam("registrar", "method_filtering", 1)
+modparam("registrar", "max_expires", 3600)
+
+modparam("rr", "enable_full_lr", 1)
+
+modparam("tm", "failure_reply_mode", 3)
+modparam("tm", "fr_timer", 30000)
+modparam("tm", "fr_inv_timer", 120000)
+
+modparam("nathelper", "natping_interval", 0)
+modparam("nathelper", "received_avp", "$avp(RECEIVED)")
+
+####### Routing Logic ########
+
+request_route {
+
+    if (!mf_process_maxfwd_header("10")) {
+        xlog("L_WARN", "DROPPED too-many-hops from=$fu src=$si:$sp\n");
+        sl_send_reply("483", "Too Many Hops");
+        exit;
+    }
+
+    if ($rm == "INVITE" || $rm == "SUBSCRIBE") {
+        record_route();
+    }
+
+    # ---- REGISTER ----
+    if ($rm == "REGISTER") {
+        if (!auth_check("$fd", "subscriber", "1")) {
+            xlog("L_INFO", "REGISTER challenge user=$fU src=$si:$sp\n");
+            auth_challenge("$fd", "0");
+            exit;
+        }
+        consume_credentials();
+        if (nat_uac_test("19")) {
+            fix_nated_register();
+        }
+        save("location");
+        xlog("L_INFO", "REGISTERED user=$fU contact=$ct src=$si:$sp\n");
+        exit;
+    }
+
+    # ---- In-dialog requests (BYE, re-INVITE, etc.) ----
+    if (has_totag()) {
+        if (loose_route()) {
+            xlog("L_INFO", "RELAY method=$rm from=$fU to=$tU callid=$ci\n");
+            route(RELAY);
+        } else {
+            sl_send_reply("404", "Not here");
+        }
+        exit;
+    }
+
+    # ---- New INVITE ----
+    if ($rm == "INVITE") {
+        if (!auth_check("$fd", "subscriber", "1")) {
+            xlog("L_INFO", "INVITE challenge caller=$fU src=$si:$sp\n");
+            auth_challenge("$fd", "0");
+            exit;
+        }
+        consume_credentials();
+        if (!lookup("location")) {
+            switch ($rc) {
+                case -1:
+                case -3:
+                    xlog("L_WARN", "INVITE callee=$rU not found caller=$fU\n");
+                    sl_send_reply("404", "User Not Found");
+                    exit;
+                case -2:
+                    sl_send_reply("405", "Method Not Allowed");
+                    exit;
+            }
+        }
+        fix_nated_contact();
+        xlog("L_INFO", "INVITE caller=$fU callee=$rU callid=$ci src=$si:$sp\n");
+        route(RELAY);
+        exit;
+    }
+
+    # ---- ACK and CANCEL ----
+    if ($rm == "ACK") {
+        if (t_check_trans()) {
+            t_relay();
+        }
+        exit;
+    }
+
+    if ($rm == "CANCEL") {
+        xlog("L_INFO", "CANCEL caller=$fU callid=$ci\n");
+        if (t_check_trans()) {
+            t_relay();
+        }
+        exit;
+    }
+
+    xlog("L_WARN", "REJECTED method=$rm from=$fu src=$si:$sp\n");
+    sl_send_reply("405", "Method Not Allowed");
+}
+
+route[RELAY] {
+    if (!t_relay()) {
+        sl_reply_error();
+    }
+    exit;
+}
