@@ -91,6 +91,10 @@ resource "aws_vpc_security_group_egress_rule" "nlb_to_sip" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-nlb-to-sip" })
 }
 
+# TCP_UDP target groups require preserve_client_ip = true (AWS does not allow disabling it).
+# NLB health checks still originate from the NLB security group, so the NLB SG reference
+# covers health check traffic. Actual SIP traffic arrives with the original client IP,
+# so operator CIDRs must be explicitly allowed on all SIP ports.
 resource "aws_vpc_security_group_ingress_rule" "sip_tcp_from_nlb" {
   for_each = { "5060" = 5060, "5061" = 5061 }
 
@@ -99,24 +103,41 @@ resource "aws_vpc_security_group_ingress_rule" "sip_tcp_from_nlb" {
   from_port                    = each.value
   to_port                      = each.value
   ip_protocol                  = "tcp"
-  description                  = "SIP TCP ${each.key} from the NLB"
+  description                  = "SIP TCP ${each.key} health checks from the NLB"
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-sip-tcp-${each.key}-from-nlb" })
 }
 
-# NLBs always preserve source IP for UDP — the container sees the operator's IP, not the
-# NLB's. An SG reference to the NLB SG would never match; operator CIDRs are required.
-resource "aws_vpc_security_group_ingress_rule" "sip_udp_from_operator" {
-  for_each = toset(var.operator_cidrs)
+locals {
+  sip_operator_rules = {
+    for pair in setproduct(
+      var.operator_cidrs,
+      [
+        { port = 5060, protocol = "udp", label = "udp-5060" },
+        { port = 5060, protocol = "tcp", label = "tcp-5060" },
+        { port = 5061, protocol = "tcp", label = "tcp-5061" },
+      ]
+    ) :
+    "${pair[0]}-${pair[1].label}" => {
+      cidr     = pair[0]
+      port     = pair[1].port
+      protocol = pair[1].protocol
+      label    = pair[1].label
+    }
+  }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "sip_from_operator" {
+  for_each = local.sip_operator_rules
 
   security_group_id = aws_security_group.sip.id
-  cidr_ipv4         = each.value
-  from_port         = 5060
-  to_port           = 5060
-  ip_protocol       = "udp"
-  description       = "SIP UDP 5060 from operator ${each.value} (NLB preserves client IP for UDP)"
+  cidr_ipv4         = each.value.cidr
+  from_port         = each.value.port
+  to_port           = each.value.port
+  ip_protocol       = each.value.protocol
+  description       = "SIP ${each.value.label} from operator ${each.value.cidr}"
 
-  tags = merge(var.tags, { Name = "${var.name_prefix}-sip-udp-${each.value}" })
+  tags = merge(var.tags, { Name = "${var.name_prefix}-sip-${each.key}" })
 }
 
 resource "aws_vpc_security_group_egress_rule" "sip_all_out" {
@@ -156,7 +177,7 @@ resource "aws_vpc_security_group_ingress_rule" "internal_from_sip" {
   security_group_id            = aws_security_group.internal.id
   referenced_security_group_id = aws_security_group.sip.id
   ip_protocol                  = "-1"
-  description                  = "PLACEHOLDER: all traffic from SIP — restrict by port before going to production"
+  description                  = "PLACEHOLDER: all traffic from SIP - restrict by port before going to production"
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-internal-from-sip" })
 }

@@ -159,6 +159,12 @@ variable "nlb_deletion_protection" {
   default     = false
 }
 
+variable "nlb_cross_zone_lb" {
+  description = "If true, the NLB routes traffic to targets in any AZ. Enable in nonprod when desired_count=1 to avoid the task being unreachable from the wrong AZ EIP. Keep false in prod."
+  type        = bool
+  default     = false
+}
+
 variable "alarm_actions" {
   description = "SNS topic ARNs for alarm notifications. Empty list = alarms with no notification."
   type        = list(string)

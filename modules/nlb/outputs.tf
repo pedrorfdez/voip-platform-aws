@@ -8,13 +8,8 @@ output "nlb_arn_suffix" {
   value       = aws_lb.this.arn_suffix
 }
 
-output "tg_sip_udp_arn_suffix" {
-  description = "UDP target group ARN suffix. Used as a CloudWatch alarm dimension."
-  value       = aws_lb_target_group.sip_udp.arn_suffix
-}
-
 output "tg_sip_tcp_arn_suffix" {
-  description = "TCP target group ARN suffix. Used as a CloudWatch alarm dimension."
+  description = "TCP_UDP 5060 target group ARN suffix. Used as a CloudWatch alarm dimension."
   value       = aws_lb_target_group.sip_tcp.arn_suffix
 }
 
@@ -33,13 +28,8 @@ output "nlb_zone_id" {
   value       = aws_lb.this.zone_id
 }
 
-output "tg_sip_udp_arn" {
-  description = "UDP 5060 target group ARN. Passed by the ecs module to register tasks."
-  value       = aws_lb_target_group.sip_udp.arn
-}
-
 output "tg_sip_tcp_arn" {
-  description = "TCP 5060 target group ARN."
+  description = "TCP_UDP 5060 target group ARN. Passed by the ecs module to register tasks."
   value       = aws_lb_target_group.sip_tcp.arn
 }
 

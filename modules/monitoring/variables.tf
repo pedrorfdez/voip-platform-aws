@@ -8,10 +8,6 @@ variable "nlb_arn_suffix" {
   type        = string
 }
 
-variable "tg_sip_udp_arn_suffix" {
-  description = "UDP target group ARN suffix. Output of the nlb module."
-  type        = string
-}
 
 variable "tg_sip_tcp_arn_suffix" {
   description = "TCP target group ARN suffix. Output of the nlb module."
@@ -33,10 +29,6 @@ variable "ecs_service_tcp_name" {
   type        = string
 }
 
-variable "ecs_service_udp_name" {
-  description = "Name of the ECS UDP service. Output of the ecs module."
-  type        = string
-}
 
 variable "rds_identifier" {
   description = "RDS instance identifier. Output of the rds module."

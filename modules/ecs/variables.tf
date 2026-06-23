@@ -33,10 +33,6 @@ variable "tg_sip_tls_arn" {
   type        = string
 }
 
-variable "tg_sip_udp_arn" {
-  description = "ARN of the UDP 5060 target group (from the nlb module)."
-  type        = string
-}
 
 variable "container_image" {
   description = "Full URI of the SIP container image in ECR (e.g. '123456789.dkr.ecr.eu-west-1.amazonaws.com/ringr-sip:latest')."

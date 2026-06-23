@@ -32,40 +32,19 @@ resource "aws_lb" "this" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-nlb" })
 }
 
-resource "aws_lb_target_group" "sip_udp" {
-  # Same 6-char name_prefix limit applies to target groups.
-  name                 = "${substr(var.name_prefix, 0, 28)}-udp"
-  port                 = 5060
-  protocol             = "UDP"
-  vpc_id               = var.vpc_id
-  target_type          = "ip"
-  deregistration_delay = var.deregistration_delay
-
-  health_check {
-    enabled             = true
-    protocol            = "TCP"
-    port                = var.udp_health_check_port
-    healthy_threshold   = var.health_check_threshold
-    unhealthy_threshold = var.health_check_threshold
-    interval            = var.health_check_interval
-  }
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-tg-sip-udp" })
-}
-
 resource "aws_lb_target_group" "sip_tcp" {
+  # TCP_UDP on port 5060 handles both TCP and UDP SIP traffic with a single listener.
+  # AWS NLBs do not allow separate TCP and UDP listeners on the same port.
   name                 = "${substr(var.name_prefix, 0, 28)}-tcp"
   port                 = 5060
-  protocol             = "TCP"
+  protocol             = "TCP_UDP"
   vpc_id               = var.vpc_id
   target_type          = "ip"
   deregistration_delay = var.deregistration_delay
 
-  # false: the NLB rewrites source IP to its own private IP before forwarding.
-  # The container sees the NLB's IP, which is covered by the NLB SG reference in
-  # the SIP SG ingress rule. With true, the container would see the operator's IP
-  # and the SG reference would never match.
-  preserve_client_ip = "false"
+  # TCP_UDP requires preserve_client_ip = true (AWS default; cannot be disabled).
+  # The Fargate SIP SG allows ingress from operator_cidrs so the container
+  # accepts packets that arrive with the original client IP as source.
 
   health_check {
     enabled             = true
@@ -91,7 +70,7 @@ resource "aws_lb_target_group" "sip_tls" {
   health_check {
     enabled             = true
     protocol            = "TCP"
-    port                = var.health_check_port
+    port                = "5060"
     healthy_threshold   = var.health_check_threshold
     unhealthy_threshold = var.health_check_threshold
     interval            = var.health_check_interval
@@ -100,23 +79,10 @@ resource "aws_lb_target_group" "sip_tls" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-tg-sip-tls" })
 }
 
-resource "aws_lb_listener" "sip_udp" {
-  load_balancer_arn = aws_lb.this.arn
-  port              = 5060
-  protocol          = "UDP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.sip_udp.arn
-  }
-
-  tags = merge(var.tags, { Name = "${var.name_prefix}-listener-sip-udp" })
-}
-
 resource "aws_lb_listener" "sip_tcp" {
   load_balancer_arn = aws_lb.this.arn
   port              = 5060
-  protocol          = "TCP"
+  protocol          = "TCP_UDP"
 
   default_action {
     type             = "forward"

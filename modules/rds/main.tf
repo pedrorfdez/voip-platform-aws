@@ -24,19 +24,12 @@ resource "aws_db_subnet_group" "this" {
   tags = merge(var.tags, { Name = "${var.name_prefix}-rds-subnet-group" })
 }
 
-# prevent_destroy: if random_password were recreated, Secrets Manager would get the new
-# value but RDS would still have the old password (due to ignore_changes on the instance),
-# causing a silent authentication failure.
 # override_special: excludes characters that require escaping in connection strings
 # (@, /, \, ") and cause parsing failures in connection URLs.
 resource "random_password" "db" {
   length           = 32
   special          = true
   override_special = "!#$%&*()-_=+[]{}<>:?"
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # Without a unique suffix a second `terraform destroy` fails because AWS rejects

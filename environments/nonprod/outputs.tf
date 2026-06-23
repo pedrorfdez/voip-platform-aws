@@ -1,3 +1,8 @@
+output "ecr_repository_url" {
+  description = "ECR repository URL. Use as container_image base in nonprod.tfvars: <url>:<tag>."
+  value       = module.ecr.repository_url
+}
+
 output "nlb_dns_name" {
   description = "NLB DNS name."
   value       = module.nlb.nlb_dns_name
@@ -23,10 +28,6 @@ output "service_tcp_name" {
   value       = module.ecs.service_tcp_name
 }
 
-output "service_udp_name" {
-  description = "Name of the ECS UDP service."
-  value       = module.ecs.service_udp_name
-}
 
 output "log_group_name" {
   description = "CloudWatch log group where the SIP container writes its logs."

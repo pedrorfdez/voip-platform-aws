@@ -37,25 +37,6 @@ variable "health_check_port" {
   default     = "traffic-port"
 }
 
-variable "udp_health_check_port" {
-  description = <<-EOT
-    TCP port used for the health check of the UDP 5060 target group.
-
-    CRITICAL: NLBs do not support UDP health checks. This health check sends a TCP
-    connection to the specified port. The SIP server MUST have a TCP socket listening
-    on this port; otherwise all UDP targets are permanently marked unhealthy and the
-    NLB silently drops all UDP SIP traffic with no alarm.
-
-    Options:
-      "traffic-port"  → TCP to 5060 (requires the SIP server to open TCP 5060)
-      "8080"          → dedicated HTTP health-check port (more robust)
-
-    Confirm with the SIP application team which TCP port they expose for health checks
-    before using the default value.
-  EOT
-  type        = string
-  default     = "traffic-port"
-}
 
 variable "health_check_interval" {
   description = "Seconds between health checks. NLBs only allow 10 or 30."
