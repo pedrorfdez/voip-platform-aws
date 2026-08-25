@@ -170,3 +170,9 @@ variable "rds_free_storage_alarm_gb" {
   type        = number
   default     = 5
 }
+
+variable "rtpengine_instance_type" {
+  description = "EC2 instance type for the rtpengine media relay."
+  type        = string
+  default     = "t3.micro"
+}

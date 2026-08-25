@@ -27,3 +27,5 @@ secrets.tfvars
 .DS_Store
 .idea/
 .vscode/
+
+superpowers/

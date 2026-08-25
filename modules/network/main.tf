@@ -1,14 +1,14 @@
 check "public_subnet_cidr_count" {
   assert {
     condition     = length(var.public_subnet_cidrs) == length(var.availability_zones)
-    error_message = "public_subnet_cidrs tiene ${length(var.public_subnet_cidrs)} elemento(s) pero availability_zones tiene ${length(var.availability_zones)}. Se necesita un CIDR por AZ."
+    error_message = "public_subnet_cidrs has ${length(var.public_subnet_cidrs)} entry/entries but availability_zones has ${length(var.availability_zones)}. One CIDR per AZ is required."
   }
 }
 
 check "private_subnet_cidr_count" {
   assert {
     condition     = length(var.private_subnet_cidrs) == length(var.availability_zones)
-    error_message = "private_subnet_cidrs tiene ${length(var.private_subnet_cidrs)} elemento(s) pero availability_zones tiene ${length(var.availability_zones)}. Se necesita un CIDR por AZ."
+    error_message = "private_subnet_cidrs has ${length(var.private_subnet_cidrs)} entry/entries but availability_zones has ${length(var.availability_zones)}. One CIDR per AZ is required."
   }
 }
 

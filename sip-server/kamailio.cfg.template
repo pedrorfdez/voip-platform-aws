@@ -34,13 +34,14 @@ loadmodule "auth_db.so"
 loadmodule "siputils.so"
 loadmodule "xlog.so"
 loadmodule "nathelper.so"
+loadmodule "rtpengine.so"
 
 ####### Module Parameters #########
 
-modparam("usrloc", "db_url", "postgres://sipadmin:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}")
+modparam("usrloc", "db_url", "postgres://sipadmin@${DB_HOST}:${DB_PORT}/${DB_NAME}")
 modparam("usrloc", "db_mode", 2)
 
-modparam("auth_db", "db_url", "postgres://sipadmin:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}")
+modparam("auth_db", "db_url", "postgres://sipadmin@${DB_HOST}:${DB_PORT}/${DB_NAME}")
 modparam("auth_db", "calculate_ha1", 1)
 modparam("auth_db", "password_column", "password")
 modparam("auth_db", "use_domain", 0)
@@ -56,6 +57,8 @@ modparam("tm", "fr_inv_timer", 120000)
 
 modparam("nathelper", "natping_interval", 0)
 modparam("nathelper", "received_avp", "$avp(RECEIVED)")
+
+modparam("rtpengine", "rtpengine_sock", "udp:${RTPENGINE_HOST}:2223")
 
 ####### Routing Logic ########
 
@@ -91,6 +94,9 @@ request_route {
     if (has_totag()) {
         if (loose_route()) {
             xlog("L_INFO", "RELAY method=$rm from=$fU to=$tU callid=$ci\n");
+            if ($rm == "BYE") {
+                rtpengine_delete();
+            }
             route(RELAY);
         } else {
             sl_send_reply("404", "Not here");
@@ -120,6 +126,8 @@ request_route {
         }
         fix_nated_contact();
         xlog("L_INFO", "INVITE caller=$fU callee=$rU callid=$ci src=$si:$sp\n");
+        rtpengine_manage("replace-origin replace-session-connection");
+        t_on_reply("MANAGE_REPLY");
         route(RELAY);
         exit;
     }
@@ -149,4 +157,12 @@ route[RELAY] {
         sl_reply_error();
     }
     exit;
+}
+
+# Rewrite callee SDP on 200 OK so the caller is told to send RTP to
+# the rtpengine EIP, not the callee's private/NATted IP.
+onreply_route[MANAGE_REPLY] {
+    if (t_check_status("200")) {
+        rtpengine_manage("replace-origin replace-session-connection");
+    }
 }

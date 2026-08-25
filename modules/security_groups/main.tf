@@ -190,3 +190,66 @@ resource "aws_vpc_security_group_egress_rule" "internal_all_out" {
 
   tags = merge(var.tags, { Name = "${var.name_prefix}-internal-egress-all" })
 }
+
+# ---------------------------------------------------------------------------
+# rtpengine — media relay for RTP audio (EC2 + EIP, not Fargate)
+# ---------------------------------------------------------------------------
+
+resource "aws_security_group" "rtpengine" {
+  #checkov:skip=CKV2_AWS_5:False positive — SG is attached to the rtpengine EC2 instance via the rtpengine module; checkov cannot see cross-module references
+  name_prefix = "${var.name_prefix}-rtpengine-"
+  description = "rtpengine media relay: RTP from clients and ng control from Kamailio"
+  vpc_id      = var.vpc_id
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-sg-rtpengine" })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+locals {
+  rtp_operator_rules = {
+    for cidr in var.operator_cidrs :
+    cidr => { cidr = cidr }
+  }
+}
+
+# Inbound RTP from softphones/carriers (UDP 10000-20000).
+# Each active call uses one port pair; this range supports up to 5000 concurrent calls.
+resource "aws_vpc_security_group_ingress_rule" "rtpengine_rtp_from_operator" {
+  for_each = local.rtp_operator_rules
+
+  security_group_id = aws_security_group.rtpengine.id
+  cidr_ipv4         = each.value.cidr
+  from_port         = 10000
+  to_port           = 20000
+  ip_protocol       = "udp"
+  description       = "RTP media from operator ${each.value.cidr}"
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-rtpengine-rtp-${each.key}" })
+}
+
+# Inbound ng control from Kamailio Fargate tasks (UDP 2223).
+# Kamailio sends offer/answer commands here to allocate ports and rewrite SDPs.
+# Referencing the SIP SG (not a CIDR) means this auto-adapts as tasks scale.
+resource "aws_vpc_security_group_ingress_rule" "rtpengine_ng_from_sip" {
+  security_group_id            = aws_security_group.rtpengine.id
+  referenced_security_group_id = aws_security_group.sip.id
+  from_port                    = 2223
+  to_port                      = 2223
+  ip_protocol                  = "udp"
+  description                  = "rtpengine ng control (UDP 2223) from Kamailio"
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-rtpengine-ng-from-sip" })
+}
+
+# Outbound: send RTP back to clients and reach SSM / NAT for management traffic.
+resource "aws_vpc_security_group_egress_rule" "rtpengine_all_out" {
+  security_group_id = aws_security_group.rtpengine.id
+  ip_protocol       = "-1"
+  cidr_ipv4         = "0.0.0.0/0"
+  description       = "Unrestricted egress: RTP to clients, SSM, internet via NAT"
+
+  tags = merge(var.tags, { Name = "${var.name_prefix}-rtpengine-egress-all" })
+}
