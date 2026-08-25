@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- Liveness probe. Send OPTIONS to the NLB.
+     Kamailio returns 405 because the route has no OPTIONS handler.
+     A 405 response proves the server is alive and processing requests. -->
+<scenario name="OPTIONS liveness probe">
+
+  <send retrans="500">
+    <![CDATA[
+OPTIONS sip:[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/TCP [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 70
+To: <sip:[remote_ip]:[remote_port]>
+From: <sip:probe@[local_ip]>;tag=[call_number]
+Call-ID: [call_id]
+CSeq: 1 OPTIONS
+Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="405"/>
+
+  <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>
+  <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
+
+</scenario>
