@@ -116,16 +116,6 @@ module "rtpengine" {
   tags              = {}
 }
 
-output "nlb_dns_name" {
-  description = "NLB DNS name. Use as the target for verify.sh."
-  value       = module.nlb.nlb_dns_name
-}
-
-output "elastic_ip_addresses" {
-  description = "Static public IPs of the NLB. Share these with SIP operators."
-  value       = module.nlb.elastic_ip_addresses
-}
-
 module "ecs" {
   source = "../../modules/ecs"
 

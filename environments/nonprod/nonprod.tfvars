@@ -20,7 +20,7 @@ certificate_arn = ""
 
 # --- Container ---
 # Fill in after `terraform apply` using: terraform output ecr_repository_url
-container_image = "236285729160.dkr.ecr.eu-west-1.amazonaws.com/ringr-sip-nonprod-sip:v0.2.2"
+container_image = "236285729160.dkr.ecr.eu-west-1.amazonaws.com/ringr-sip-nonprod-sip:9a5a4e0"
 
 # --- ECS ---
 ecs_task_cpu    = 256 # 0.25 vCPU — Fargate minimum; enough for testing

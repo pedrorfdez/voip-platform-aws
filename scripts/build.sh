@@ -8,7 +8,7 @@
 # Requirements:
 #   - docker
 #   - aws CLI (authenticated, with ECR push permissions)
-#   - terraform (nonprod state must exist — run ./scripts/up.sh at least once)
+#   - terraform
 
 set -euo pipefail
 
@@ -30,14 +30,23 @@ done
 TAG=$(git -C "${REPO_ROOT}" rev-parse --short HEAD)
 echo "==> Image tag: ${TAG}"
 
-# --- Read ECR URL from Terraform state ---
-echo "==> Reading ECR repository URL from Terraform state..."
+# --- Read ECR URL ---
+# Primary: Terraform state output. This works when the environment is provisioned.
+# Fallback: parse the repository URL from the existing container_image in nonprod.tfvars.
+#   ECR repositories persist across terraform destroy cycles, so the URL in tfvars
+#   is always valid even when the rest of the state is empty.
+echo "==> Reading ECR repository URL..."
 ECR_URL=$(terraform -chdir="${ENV_DIR}" output -raw ecr_repository_url 2>/dev/null || true)
 
 if [[ -z "${ECR_URL}" ]]; then
-    echo "ERROR: Could not read ecr_repository_url from Terraform state."
-    echo "  The ECR repository must exist before building."
-    echo "  Run './scripts/up.sh' once to create it, then re-run this script."
+    echo "    Terraform state unavailable. Parsing URL from nonprod.tfvars..."
+    CURRENT_IMAGE=$(grep 'container_image' "${TFVARS_FILE}" | sed 's/.*= *"\(.*\)"/\1/')
+    ECR_URL="${CURRENT_IMAGE%:*}"
+fi
+
+if [[ -z "${ECR_URL}" ]]; then
+    echo "ERROR: Could not determine ECR repository URL."
+    echo "  Set container_image in nonprod.tfvars, or run './scripts/up.sh' first."
     exit 1
 fi
 
