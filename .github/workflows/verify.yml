@@ -1,0 +1,63 @@
+name: SIP Platform — End-to-End Verification
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to provision and test"
+        required: true
+        default: "nonprod"
+        type: choice
+        options:
+          - nonprod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  verify:
+    name: Provision → Verify → Destroy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.9"
+
+      - name: Install sip-tester (SIPp)
+        run: sudo apt-get install -y sip-tester
+
+      - name: Terraform init
+        run: terraform -chdir=environments/${{ inputs.environment }} init -upgrade
+
+      - name: Provision ECR
+        # ECR must exist before the image push in the next step.
+        # The full apply runs after — it picks up the new image tag from nonprod.tfvars.
+        run: terraform -chdir=environments/${{ inputs.environment }} apply -target=module.ecr -var-file=${{ inputs.environment }}.tfvars -auto-approve
+
+      - name: Build and push Docker image
+        run: bash scripts/build.sh
+
+      - name: Provision full environment
+        run: terraform -chdir=environments/${{ inputs.environment }} apply -var-file=${{ inputs.environment }}.tfvars -auto-approve
+
+      - name: Run SIPp verification
+        run: |
+          NLB_IP=$(terraform -chdir=environments/${{ inputs.environment }} output -json elastic_ip_addresses | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
+          bash scripts/verify.sh "${NLB_IP}"
+
+      - name: Destroy environment
+        if: always()
+        run: terraform -chdir=environments/${{ inputs.environment }} destroy -var-file=${{ inputs.environment }}.tfvars -auto-approve

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+<!DOCTYPE scenario SYSTEM "sipp.dtd">
+
+<!-- REGISTER with digest auth.
+     Step 1: Send REGISTER without credentials.
+     Step 2: Receive 401 Unauthorized. SIPp stores the WWW-Authenticate header.
+     Step 3: Re-send REGISTER with computed digest. SIPp fills the Authorization header.
+     Step 4: Receive 200 OK.
+     A 200 OK proves auth, the subscriber table, and the DB connection all work. -->
+<scenario name="REGISTER alice with digest auth">
+
+  <send retrans="500">
+    <![CDATA[
+REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/TCP [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 70
+To: <sip:alice@[remote_ip]>
+From: <sip:alice@[remote_ip]>;tag=[call_number]
+Call-ID: [call_id]
+CSeq: 1 REGISTER
+Contact: <sip:alice@[local_ip]:[local_port];transport=tcp>
+Expires: 60
+Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="401" auth="true"/>
+
+  <send>
+    <![CDATA[
+REGISTER sip:[remote_ip]:[remote_port] SIP/2.0
+Via: SIP/2.0/TCP [local_ip]:[local_port];branch=[branch]
+Max-Forwards: 70
+To: <sip:alice@[remote_ip]>
+From: <sip:alice@[remote_ip]>;tag=[call_number]
+Call-ID: [call_id]
+CSeq: 2 REGISTER
+Contact: <sip:alice@[local_ip]:[local_port];transport=tcp>
+Expires: 60
+[authentication username=alice password=alicepass]
+Content-Length: 0
+
+    ]]>
+  </send>
+
+  <recv response="200"/>
+
+  <ResponseTimeRepartition value="10, 20, 30, 40, 50, 100, 150, 200"/>
+  <CallLengthRepartition value="10, 50, 100, 500, 1000, 5000, 10000"/>
+
+</scenario>

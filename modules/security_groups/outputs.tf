@@ -17,3 +17,8 @@ output "internal_sg_id" {
   description = "Security Group ID for internal services."
   value       = aws_security_group.internal.id
 }
+
+output "rtpengine_sg_id" {
+  description = "Security Group ID for the rtpengine media relay EC2 instance."
+  value       = aws_security_group.rtpengine.id
+}

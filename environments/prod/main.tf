@@ -98,6 +98,16 @@ module "monitoring" {
   tags          = {}
 }
 
+module "rtpengine" {
+  source = "../../modules/rtpengine"
+
+  name_prefix       = local.name_prefix
+  private_subnet_id = module.network.private_subnet_ids[0]
+  rtpengine_sg_id   = module.security_groups.rtpengine_sg_id
+  instance_type     = var.rtpengine_instance_type
+  tags              = {}
+}
+
 module "ecs" {
   source = "../../modules/ecs"
 
@@ -112,9 +122,10 @@ module "ecs" {
   container_image = var.container_image
 
   container_environment = [
-    { name = "DB_HOST", value = module.rds.db_address },
-    { name = "DB_PORT", value = tostring(module.rds.db_port) },
-    { name = "DB_NAME", value = module.rds.db_name },
+    { name = "DB_HOST",        value = module.rds.db_address },
+    { name = "DB_PORT",        value = tostring(module.rds.db_port) },
+    { name = "DB_NAME",        value = module.rds.db_name },
+    { name = "RTPENGINE_HOST", value = module.rtpengine.private_ip },
   ]
 
   container_secrets = [
