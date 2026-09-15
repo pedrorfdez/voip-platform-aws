@@ -64,6 +64,15 @@ in_audio() {
     docker compose run --rm --entrypoint sh bob -c "$1"
 }
 
+# Count sessions rtpengine has cleanly deleted via BYE, as opposed to ones
+# it only expired after a timeout. A session that never gets a real BYE
+# (e.g. because Record-Route is unroutable and the UAs bypass the proxy)
+# shows up here as zero, growing the timeout counters instead.
+regular_terminated() {
+    ctl list totals \
+        | awk -F: '/^[[:space:]]*Total regular terminated sessions[[:space:]]*:/ { gsub(/[^0-9]/, "", $2); print $2; exit }'
+}
+
 # Count the packets that rtpengine relayed. "list totals" leaves out the
 # sessions that still run, and rtpengine keeps a session for about 60 seconds
 # after the call. So add the counters of the live sessions to the totals.
@@ -98,6 +107,7 @@ ctl terminate all >/dev/null 2>&1 || true
 
 BASELINE_PACKETS="$(relayed_packets)"
 echo "  rtpengine relayed packets before the call: ${BASELINE_PACKETS}"
+BASELINE_TERMINATED="$(regular_terminated)"
 
 echo "==> Stage 3: starting bob and waiting for it to register..."
 cleanup
@@ -171,4 +181,16 @@ echo "  Maximum amplitude: ${AMPLITUDE:-none}"
 awk -v a="${AMPLITUDE}" -v m="${MIN_AMPLITUDE}" 'BEGIN { exit !(a >= m) }' \
     || fail "audio-silence" "the recording is silence. Media never reached bob."
 
-echo "PASS: rtpengine relayed ${RELAYED} packets and bob recorded ${DURATION}s of audio at amplitude ${AMPLITUDE}."
+echo "==> Stage 9: checking that the session ended via a real BYE, not a timeout..."
+# rtpengine needs up to ~60s to fold a just-ended session into "list totals".
+# Poll instead of checking once, so this doesn't race the call's own hangup.
+TERMINATED_DELTA=0
+for _ in $(seq 1 60); do
+    TERMINATED_DELTA=$(( $(regular_terminated) - BASELINE_TERMINATED ))
+    [[ "${TERMINATED_DELTA}" -ge 1 ]] && break
+    sleep 1
+done
+[[ "${TERMINATED_DELTA}" -ge 1 ]] \
+    || fail "rtpengine-cleanup" "rtpengine never recorded a regular-terminated session for this call — BYE likely never reached Kamailio (check Record-Route: 'docker compose logs kamailio' should show 'RELAY method=BYE')."
+
+echo "PASS: rtpengine relayed ${RELAYED} packets, cleanly terminated the session via BYE, and bob recorded ${DURATION}s of audio at amplitude ${AMPLITUDE}."
