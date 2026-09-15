@@ -1,1 +1,4 @@
 *.sh text eol=lf
+# The containers read these files. CRLF line ends break the parsers.
+*.template text eol=lf
+Dockerfile text eol=lf
