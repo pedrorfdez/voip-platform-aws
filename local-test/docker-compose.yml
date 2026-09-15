@@ -53,3 +53,37 @@ services:
     networks:
       - media-plane
     profiles: ["test"]  # never started by `docker compose up`, only by explicit `run`
+
+  alice:
+    build: ./baresip
+    depends_on:
+      kamailio:
+        condition: service_started
+    environment:
+      SIP_USER: alice
+      SIP_PASS: alicepass
+      ANSWERMODE: manual
+      CALL_TARGET: bob
+      CALL_DURATION: "8"
+    networks:
+      - media-plane
+    profiles: ["test"]
+
+  bob:
+    build: ./baresip
+    depends_on:
+      kamailio:
+        condition: service_started
+    environment:
+      SIP_USER: bob
+      SIP_PASS: bobpass
+      ANSWERMODE: auto
+      CALL_DURATION: "8"
+    networks:
+      - media-plane
+    profiles: ["test"]
+    volumes:
+      - bob-audio:/audio
+
+volumes:
+  bob-audio:

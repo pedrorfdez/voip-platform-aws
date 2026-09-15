@@ -1,0 +1,22 @@
+# local-test/baresip/config.template
+sip_listen              0.0.0.0:${SIP_PORT}
+sip_verify_server       no
+
+module_path             ${MODULE_PATH}
+
+# Audio codec and file-based audio device modules.
+module                  g711.so
+module                  aufile.so
+
+# account.so reads the accounts file and registers with Kamailio.
+module                  account.so
+# menu.so supplies the /dial and /hangup commands and the auto answer mode.
+module                  menu.so
+# stdio.so reads the commands that the entrypoint sends on stdin.
+module                  stdio.so
+
+audio_player            aufile,/audio/received.wav
+audio_source            aufile,/audio/${SOURCE_WAV}
+ausrc_srate             8000
+auplay_srate            8000
+audio_codecs            PCMA/8000/1
