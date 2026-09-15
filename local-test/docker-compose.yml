@@ -18,3 +18,10 @@ services:
       interval: 2s
       timeout: 3s
       retries: 20
+
+  rtpengine:
+    build: ./rtpengine
+    networks:
+      - media-plane
+    ports:
+      - "40000-40100:40000-40100/udp"

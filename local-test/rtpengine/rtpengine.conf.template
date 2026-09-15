@@ -1,0 +1,8 @@
+[rtpengine]
+interface = ${RTPENGINE_IP}!${RTPENGINE_IP}
+listen-ng = 0.0.0.0:2223
+port-min = ${RTP_PORT_MIN}
+port-max = ${RTP_PORT_MAX}
+log-level = 7
+log-stderr = 1
+foreground = 1
