@@ -23,8 +23,6 @@ services:
     build: ./rtpengine
     networks:
       - media-plane
-    ports:
-      - "40000-40100:40000-40100/udp"
 
   kamailio:
     build:
@@ -42,9 +40,6 @@ services:
       RTPENGINE_HOST: rtpengine
     networks:
       - media-plane
-    ports:
-      - "5060:5060/tcp"
-      - "5060:5060/udp"
 
   sipp:
     build:

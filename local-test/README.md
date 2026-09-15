@@ -21,8 +21,11 @@ an earlier run) plus a roughly 20-30 second live call.
 ## Host prerequisites
 
 - Docker with Compose v2 (`docker compose version`)
-- `sox` (`sudo apt install sox` / `brew install sox`) — used to check both
-  the duration and the amplitude of the recorded WAV file after the call.
+- `bash` and `awk`
+
+The host does not need `sox`. Every `sox`/`soxi` invocation runs inside the
+`baresip` container image, not on the host, to check the duration and the
+amplitude of the recorded WAV file after the call.
 
 ## What this does and does not prove
 

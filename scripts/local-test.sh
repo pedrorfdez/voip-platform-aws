@@ -8,6 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_TEST_DIR="${SCRIPT_DIR}/../local-test"
 
 cleanup() {
+    local code=$?
+    if [[ ${code} -ne 0 ]]; then
+        echo "==> Test failed (exit ${code}). Service logs:"
+        (cd "${LOCAL_TEST_DIR}" && docker compose logs --tail 100 kamailio rtpengine postgres) || true
+    fi
     echo ""
     echo "==> Tearing down local stack..."
     (cd "${LOCAL_TEST_DIR}" && docker compose down -v)
