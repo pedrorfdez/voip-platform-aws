@@ -1,0 +1,2 @@
+# local-test/baresip/accounts.template
+<sip:${SIP_USER}@kamailio>;auth_user=${SIP_USER};auth_pass=${SIP_PASS};answermode=${ANSWERMODE};regint=300

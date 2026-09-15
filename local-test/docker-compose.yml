@@ -1,0 +1,84 @@
+name: ringr-sip-local
+
+networks:
+  media-plane:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ringr_sip
+      POSTGRES_USER: sipadmin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - media-plane
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sipadmin -d ringr_sip"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  rtpengine:
+    build: ./rtpengine
+    networks:
+      - media-plane
+
+  kamailio:
+    build:
+      context: ../sip-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rtpengine:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ringr_sip
+      DB_PASSWORD: ${DB_PASSWORD}
+      RTPENGINE_HOST: rtpengine
+    networks:
+      - media-plane
+
+  sipp:
+    build:
+      context: ..
+      dockerfile: local-test/sipp/Dockerfile
+    networks:
+      - media-plane
+    profiles: ["test"]  # never started by `docker compose up`, only by explicit `run`
+
+  alice:
+    build: ./baresip
+    depends_on:
+      kamailio:
+        condition: service_started
+    environment:
+      SIP_USER: alice
+      SIP_PASS: alicepass
+      ANSWERMODE: manual
+      CALL_TARGET: bob
+      CALL_DURATION: "8"
+    networks:
+      - media-plane
+    profiles: ["test"]
+
+  bob:
+    build: ./baresip
+    depends_on:
+      kamailio:
+        condition: service_started
+    environment:
+      SIP_USER: bob
+      SIP_PASS: bobpass
+      ANSWERMODE: auto
+      CALL_DURATION: "8"
+    networks:
+      - media-plane
+    profiles: ["test"]
+    volumes:
+      - bob-audio:/audio
+
+volumes:
+  bob-audio:

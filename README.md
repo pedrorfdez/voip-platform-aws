@@ -6,6 +6,15 @@ Production-grade SIP signalling infrastructure on AWS: Network Load Balancer →
 
 ---
 
+## Testing
+
+- `./scripts/local-test.sh` — signaling + real RTP audio, entirely local,
+  no AWS spend. See [local-test/README.md](local-test/README.md).
+- `./scripts/verify.sh` — signaling smoke test against the deployed AWS
+  environment (requires `./scripts/up.sh` first).
+
+---
+
 ## Architecture
 
 ```

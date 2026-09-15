@@ -1,0 +1,11 @@
+[rtpengine]
+interface = ${RTPENGINE_IP}!${RTPENGINE_IP}
+listen-ng = 0.0.0.0:2223
+# The CLI interface lets rtpengine-ctl read the packet counters.
+# It stays on localhost, so only this container can use it.
+listen-cli = 127.0.0.1:9900
+port-min = ${RTP_PORT_MIN}
+port-max = ${RTP_PORT_MAX}
+log-level = 7
+log-stderr = 1
+foreground = 1
