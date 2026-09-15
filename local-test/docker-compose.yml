@@ -25,3 +25,23 @@ services:
       - media-plane
     ports:
       - "40000-40100:40000-40100/udp"
+
+  kamailio:
+    build:
+      context: ../sip-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rtpengine:
+        condition: service_started
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ringr_sip
+      DB_PASSWORD: ${DB_PASSWORD}
+      RTPENGINE_HOST: rtpengine
+    networks:
+      - media-plane
+    ports:
+      - "5060:5060/tcp"
+      - "5060:5060/udp"
