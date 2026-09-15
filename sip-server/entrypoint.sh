@@ -1,10 +1,14 @@
 #!/bin/sh
 set -e
 
+# 0. Discover this container's own IP, to advertise in Record-Route/Contact
+#    instead of the 0.0.0.0 wildcard bind address (see kamailio.cfg.template).
+export KAMAILIO_IP="$(hostname -i | awk '{print $1}')"
+
 # 1. Substitute DB credentials into the config template.
 #    Kamailio's own variable syntax ($ru, $var(...), etc.) does not use ${} braces,
 #    so envsubst only replaces the explicit list and leaves the rest untouched.
-envsubst '${DB_HOST} ${DB_PORT} ${DB_NAME} ${RTPENGINE_HOST}' \
+envsubst '${DB_HOST} ${DB_PORT} ${DB_NAME} ${RTPENGINE_HOST} ${KAMAILIO_IP}' \
     < /etc/kamailio/kamailio.cfg.template \
     > /etc/kamailio/kamailio.cfg
 
