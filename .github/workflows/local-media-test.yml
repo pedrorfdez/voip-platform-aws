@@ -1,0 +1,20 @@
+name: Local Media Test Harness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  local-media-test:
+    name: Signaling + RTP audio (Docker, no AWS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install sox (for WAV duration and silence assertions)
+        run: sudo apt-get update -y && sudo apt-get install -y sox
+
+      - name: Run local media test harness
+        run: bash scripts/local-test.sh
