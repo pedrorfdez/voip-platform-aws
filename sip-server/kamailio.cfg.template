@@ -6,6 +6,7 @@
 # are logged explicitly via xlog below, so core debug noise is not needed.
 debug=2
 log_stderror=yes
+log_facility=LOG_LOCAL0
 
 fork=yes
 children=4

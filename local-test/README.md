@@ -42,23 +42,41 @@ Does not:
 - Prove NAT traversal across a real internet path — there is no NAT
   locally. That is only proven by `scripts/verify.sh` against the
   deployed AWS environment (see the root `README.md`).
-- Prove that rtpengine sessions clean up on hangup. `rtpengine_delete()`
-  on BYE does not appear to cleanly terminate sessions in this stack;
-  `rtpengine-ctl list totals` shows them ending as `timed-out via
-  TIMEOUT` rather than `regular terminated`. This is a pre-existing
-  condition in `sip-server/kamailio.cfg.template` that this harness
-  surfaced. Fixing it is out of scope for this harness, since
-  `sip-server/` is off-limits here — the audio test works around it by
-  terminating any leftover sessions before it takes its own baseline.
+
+## Fixed: rtpengine sessions were not cleaning up on hangup
+
+This harness originally found that `rtpengine-ctl list totals` showed
+sessions ending as `timed-out via TIMEOUT` rather than `regular
+terminated` — meaning `rtpengine_delete()` never actually fired on BYE.
+Root cause: Kamailio was listening on the wildcard address
+`0.0.0.0` with no `advertise` address, so `record_route()` inserted a
+literally unroutable `Record-Route: <sip:0.0.0.0;...>`. SIP UAs then sent
+BYE (and other in-dialog requests) directly to each other instead of back
+through Kamailio, so the BYE branch that calls `rtpengine_delete()` never
+ran. Fixed in `sip-server/kamailio.cfg.template` by discovering the
+container's real IP at startup (`sip-server/entrypoint.sh`) and adding
+`advertise ${KAMAILIO_IP}:<port>` to each `listen` line. Confirmed fixed:
+`rtpengine-ctl list totals` now shows `Total regular terminated
+sessions: 1` per call instead of a timeout.
+
+This also fixed Kamailio's operational logging: `debug=1` was silently
+suppressing every `xlog("L_INFO", ...)` line (REGISTER, INVITE, RELAY,
+BYE, CANCEL) — there was no per-call visibility at all, locally or in
+CloudWatch. Raised to `debug=2` so those lines are actually visible.
 
 ## Known timing quirk
 
-Real media takes roughly 10 seconds to start flowing after the call
-connects in this stack (root cause not isolated). `run-audio-test.sh`
-works around this at the test level by defaulting `CALL_DURATION` to 20
-seconds — a shorter call risks recording little more than the startup
-gap and failing the silence check. If you override `CALL_DURATION`,
-keep it well above 10s.
+Real media takes roughly 5-10 seconds to start flowing after the call
+connects in this stack. Root cause isolated to `baresip`'s own `aufile`
+audio-source pipeline on the caller side — confirmed independently via
+rtpengine's own packet counters (zero packets received from alice for the
+first several seconds of every call), not by Kamailio's SDP handling or
+rtpengine's relay path. This is a property of the `baresip` test tooling
+in `local-test/baresip/`, not a defect in `sip-server/` or the rtpengine
+Terraform module. `run-audio-test.sh` works around it at the test level by
+defaulting `CALL_DURATION` to 20 seconds — a shorter call risks recording
+little more than the startup gap and failing the silence check. If you
+override `CALL_DURATION`, keep it well above 10s.
 
 ## Debugging a failure
 
